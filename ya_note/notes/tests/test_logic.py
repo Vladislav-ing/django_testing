@@ -1,86 +1,150 @@
+from copy import deepcopy
 from http import HTTPStatus
-
-from django.contrib.auth import get_user_model
 
 from pytils.translit import slugify
 
 from notes.forms import WARNING
 from notes.models import Note
-from notes.tests.fixture_bases import BasesLogiCreateSetup, BasesTestSetup
+from notes.tests.fixture_bases import BasesTestSetup
 
-User = get_user_model()
+CORRECT_DATA_FORM = {
+    'title': 'Новый заголовок заметки',
+    'text': 'Новый текст заметки',
+}
 
 
-class TestCreationNote(BasesLogiCreateSetup):
+class TestCreateEditDeleteNote(BasesTestSetup):
 
-    def test_create_note_for_anonimus_user(self):
-        self.client.post(self.create_note_url, data=self.form_data)
-        notes_count = Note.objects.count()
-        self.assertEqual(notes_count, 0)
+    def test_anonymous_user_cant_create_note(self):
+        count_notes_before = Note.objects.count()
+        self.client.post(self.add_note_url, data=CORRECT_DATA_FORM)
 
-    def test_create_note_for_auth_user(self):
+        self.assertEqual((Note.objects.count() - count_notes_before), 0)
+
+    def test_auth_user_can_create_note(self):
+        set_notes_before = set(Note.objects.all())
         response = self.author_client.post(
-            self.create_note_url, data=self.form_data
+            self.add_note_url, data=CORRECT_DATA_FORM
         )
+
         self.assertRedirects(response, self.success_url)
 
-        count_notes = Note.objects.count()
-        self.assertEqual(count_notes, 1)
+        set_notes_after = set(Note.objects.all()) ^ set_notes_before
 
-        note_obj = Note.objects.get()
-        self.assertEqual(self.author, note_obj.author)
-        self.assertEqual(self.TITLE_NOTE, note_obj.title)
-        self.assertEqual(self.TEXT_NOTE, note_obj.text)
+        self.assertEqual(len(set_notes_after), 1)
 
-    def test_cancel_create_note_for_second_twins_slug(self):
-        self.author_client.post(self.create_note_url, data=self.form_data)
+        note_obj = set_notes_after.pop()
+
+        self.assertEqual(note_obj.author, self.author)
+        self.assertEqual(note_obj.title, CORRECT_DATA_FORM['title'])
+        self.assertEqual(note_obj.text, CORRECT_DATA_FORM['text'])
+
+    def test_twins_slugs_cant_create_by_note(self):
+        set_slug_before = Note.objects.values_list('slug', flat=True)
+        slug_note = slugify(CORRECT_DATA_FORM['title'][:100])
+
+        self.assertNotIn(slug_note, set_slug_before)
+
+        self.author_client.post(self.add_note_url, data=CORRECT_DATA_FORM)
+
+        set_slug_after = Note.objects.values_list('slug', flat=True)
+
+        self.assertIn(slug_note, set_slug_after)
+
+        self.assertEqual((len(set_slug_after) - len(set_slug_before)), 1)
+
         response = self.author_client.post(
-            self.create_note_url, data=self.form_data
+            self.add_note_url, data=CORRECT_DATA_FORM
         )
-        error = slugify(self.form_data['title'])[:100] + WARNING
+
+        self.assertCountEqual(
+            Note.objects.values_list('slug', flat=True), set_slug_after
+        )
+
+        error = slug_note + WARNING
         self.assertFormError(
             response=response, form='form', field='slug', errors=error
         )
 
-        count_notes = Note.objects.count()
-        self.assertEqual(count_notes, 1)
+    def test_note_created_without_slug_equal_title(self):
+        set_notes_before = set(Note.objects.all())
 
-    def test_create_note_without_slug(self):
-        self.assertNotIn('slug', self.form_data)
-        self.author_client.post(self.create_note_url, data=self.form_data)
+        self.assertNotIn('slug', CORRECT_DATA_FORM)
 
-        note_obj = Note.objects.get()
-        title_to_slug = slugify(note_obj.title[:100])
-        self.assertEqual(title_to_slug, note_obj.slug)
+        self.author_client.post(self.add_note_url, data=CORRECT_DATA_FORM)
+        set_notes_after = set(Note.objects.all())
 
+        self.assertEqual(len(set_notes_before ^ set_notes_after), 1)
 
-class TestEditDeleteNotes(BasesTestSetup):
+        note_obj = (set_notes_before ^ set_notes_after).pop()
+        slug_note = slugify(CORRECT_DATA_FORM['title'][:100])
 
-    def test_delete_note_author_user(self):
+        self.assertEqual(slug_note, note_obj.slug)
+
+    def test_author_user_can_delete_note(self):
+        count_notes_before = Note.objects.count()
+        note_obj = self.note
+
+        self.assertIn(note_obj, Note.objects.all())
+
         response = self.author_client.delete(self.delete_url)
+
         self.assertRedirects(response, self.success_url)
+        self.assertEqual((count_notes_before - Note.objects.count()), 1)
+        self.assertNotIn(note_obj, Note.objects.all())
 
-        count_notes = Note.objects.count()
-        self.assertEqual(count_notes, 0)
+    def test_reader_user_cant_delete_note(self):
+        count_notes_before = Note.objects.count()
+        note_obj = self.note
 
-    def test_delete_note_reader_user(self):
+        self.assertIn(note_obj, Note.objects.all())
+
         response = self.reader_client.delete(self.delete_url)
+
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertEqual(count_notes_before, Note.objects.count())
+        self.assertIn(note_obj, Note.objects.all())
 
-        count_notes = Note.objects.count()
-        self.assertEqual(count_notes, 1)
+    def test_author_user_can_edit_note(self):
+        count_notes_before = Note.objects.count()
+        self.assertIn(self.note, Note.objects.all())
 
-    def test_edit_note_author_user(self):
-        response = self.author_client.post(self.edit_url, data=self.form_data)
-        success_response_url = response['Location']
-        self.assertEqual(success_response_url, self.success_url)
+        older_note = deepcopy(self.note)
 
+        response = self.author_client.post(
+            self.edit_url, data=CORRECT_DATA_FORM
+        )
+
+        self.assertEqual(response['Location'], self.success_url)
         self.note.refresh_from_db()
-        self.assertEqual(self.note.text, self.NEW_TEXT_NOTE)
 
-    def test_edit_note_reader_user(self):
-        response = self.reader_client.post(self.edit_url, data=self.form_data)
+        self.assertEqual(count_notes_before, Note.objects.count())
+
+        self.assertIn(self.note, Note.objects.all())
+
+        self.assertNotEqual(older_note.title, self.note.title)
+        self.assertNotEqual(older_note.text, self.note.text)
+        self.assertNotEqual(older_note.slug, self.note.slug)
+        self.assertEqual(older_note.author, self.note.author)
+
+    def test_reader_user_cant_edit_note(self):
+        count_notes_before = Note.objects.count()
+        self.assertIn(self.note, Note.objects.all())
+
+        older_note = deepcopy(self.note)
+
+        response = self.reader_client.post(
+            self.edit_url, data=CORRECT_DATA_FORM
+        )
+
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
-
         self.note.refresh_from_db()
-        self.assertNotEqual(self.note.text, self.NEW_TEXT_NOTE)
+
+        self.assertEqual(count_notes_before, Note.objects.count())
+
+        self.assertIn(self.note, Note.objects.all())
+
+        self.assertEqual(older_note.title, self.note.title)
+        self.assertEqual(older_note.text, self.note.text)
+        self.assertEqual(older_note.slug, self.note.slug)
+        self.assertEqual(older_note.author, self.note.author)

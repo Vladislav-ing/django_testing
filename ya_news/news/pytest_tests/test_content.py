@@ -1,35 +1,35 @@
 from django.conf import settings
-from django.urls import reverse
 
 import pytest
 
 from news.forms import CommentForm
 
-pytestmark = pytest.mark.django_db
 
+@pytest.mark.usefixtures('list_news')
+def test_count_news_in_home(client, home_url):
+    """Проверка количества объектов на гл. странице."""
+    response = client.get(home_url)
+    assert 'object_list' in response.context
 
-@pytest.mark.usefixtures('create_list_news')
-def test_count_news_in_home(client):
-    url = reverse('news:home')
-    response = client.get(url)
     count_obj = response.context['object_list'].count()
     assert count_obj == settings.NEWS_COUNT_ON_HOME_PAGE
 
 
-@pytest.mark.usefixtures('create_list_news')
-def test_order_news(client):
-    url = reverse('news:home')
-    response = client.get(url)
+@pytest.mark.usefixtures('list_news')
+def test_order_news(client, home_url):
+    """Проверка порядка объектов на гл. странице."""
+    response = client.get(home_url)
+    assert 'object_list' in response.context
+
     news_dates = [news.date for news in response.context['object_list']]
     sorted_dates = sorted(news_dates, reverse=True)
     assert news_dates == sorted_dates
 
 
-@pytest.mark.usefixtures('create_list_comments')
-def test_order_comments(client, news):
-    url = reverse('news:detail', args=(news.id,))
-    response = client.get(url)
-
+@pytest.mark.usefixtures('list_comments')
+def test_order_comments(client, detail_url):
+    """Проверка порядка объектов комментариев на стр. новости."""
+    response = client.get(detail_url)
     assert 'news' in response.context
 
     list_comments = response.context['news'].comment_set.all()
@@ -39,18 +39,16 @@ def test_order_comments(client, news):
     assert comments_dates == sorted_comments
 
 
-@pytest.mark.parametrize(
-    'user_client, has_form_comment',
-    (
-        (pytest.lazy_fixture('author_client'), True),
-        (pytest.lazy_fixture('client'), False),
-    ),
-)
-def test_user_has_form_comment(user_client, has_form_comment, news):
-    url = reverse('news:detail', args=(news.id,))
-    response = user_client.get(url)
+def test_anonymous_hasnt_form_comment(client, detail_url):
+    """Проверка наличия формы комментария для анонима на стр. новости."""
+    response = client.get(detail_url)
 
-    assert ('form' in response.context) == has_form_comment
+    assert 'form' not in response.context
 
-    if has_form_comment:
-        assert isinstance(response.context['form'], CommentForm)
+
+def test_user_has_form_comment(reader_client, detail_url):
+    """Проверка наличия формы комментария для пользователя на стр. новости."""
+    response = reader_client.get(detail_url)
+
+    assert 'form' in response.context
+    assert isinstance(response.context['form'], CommentForm)
