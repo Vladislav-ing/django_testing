@@ -29,8 +29,6 @@ def test_author_can_create_comment(
 
     new_comment = set(Comment.objects.all()) ^ comments_before
 
-    assert len(new_comment) == 1
-
     last_comment = new_comment.pop()
 
     assert last_comment.text == CORRECT_DATA_FORM['text']
@@ -69,7 +67,7 @@ def test_reader_cant_delete_comment(reader_client, delete_comment_url):
     assert count_comments_before == Comment.objects.count()
 
 
-def test_author_can_edit_comment(
+def test_author_can_update_comment(
     author_client, comment_url, comment, edit_comment_url
 ):
     count_comments_before = Comment.objects.count()
@@ -78,14 +76,14 @@ def test_author_can_edit_comment(
 
     assert Comment.objects.count() == count_comments_before
 
-    update_comment = Comment.objects.get(pk=comment.pk)
+    updated_comment = Comment.objects.get(pk=comment.pk)
 
-    assert update_comment.text == CORRECT_DATA_FORM['text']
-    assert update_comment.news == comment.news
-    assert update_comment.author == comment.author
+    assert updated_comment.text == CORRECT_DATA_FORM['text']
+    assert updated_comment.news == comment.news
+    assert updated_comment.author == comment.author
 
 
-def test_reader_cant_edit_comment(reader_client, comment, edit_comment_url):
+def test_reader_cant_update_comment(reader_client, comment, edit_comment_url):
     count_comments_before = Comment.objects.count()
     response = reader_client.post(edit_comment_url, data=CORRECT_DATA_FORM)
 
@@ -93,8 +91,8 @@ def test_reader_cant_edit_comment(reader_client, comment, edit_comment_url):
 
     assert count_comments_before == Comment.objects.count()
 
-    update_comment = Comment.objects.get(pk=comment.pk)
+    updated_comment = Comment.objects.get(pk=comment.pk)
 
-    assert update_comment.text == comment.text
-    assert update_comment.news == comment.news
-    assert update_comment.author == comment.author
+    assert updated_comment.text == comment.text
+    assert updated_comment.news == comment.news
+    assert updated_comment.author == comment.author

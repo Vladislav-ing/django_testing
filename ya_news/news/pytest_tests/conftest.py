@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
 
+import pytest
 from django.conf import settings
 from django.test.client import Client
 from django.urls import reverse
-
-import pytest
 
 from news.models import Comment, News
 
@@ -58,30 +57,24 @@ def comment(news, author):
 @pytest.fixture
 def list_news():
     today = datetime.today()
-    set_news = []
 
-    for index in range(settings.NEWS_COUNT_ON_HOME_PAGE + 1):
-        news_obj = News(
+    News.objects.bulk_create(
+        News(
             title=f'Заголовок {index + 1}',
             text=f'Текст {index + 1}',
             date=today - timedelta(days=index),
         )
-        set_news.append(news_obj)
-
-    News.objects.bulk_create(set_news)
+        for index in range(settings.NEWS_COUNT_ON_HOME_PAGE + 1)
+    )
 
 
 @pytest.fixture
 def list_comments(author, news):
-    set_comments = []
 
     for index in range(10):
-        comment_obj = Comment(
+        Comment.objects.create(
             news=news, author=author, text=f'Текст {index + 1}'
         )
-        set_comments.append(comment_obj)
-
-    Comment.objects.bulk_create(set_comments)
 
 
 @pytest.fixture

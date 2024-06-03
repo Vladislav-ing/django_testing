@@ -109,7 +109,7 @@ class TestCreateEditDeleteNote(BasesTestSetup):
         count_notes_before = Note.objects.count()
         self.assertIn(self.note, Note.objects.all())
 
-        older_note = deepcopy(self.note)
+        older_author = self.note.author
 
         response = self.author_client.post(
             self.edit_url, data=CORRECT_DATA_FORM
@@ -122,10 +122,11 @@ class TestCreateEditDeleteNote(BasesTestSetup):
 
         self.assertIn(self.note, Note.objects.all())
 
-        self.assertNotEqual(older_note.title, self.note.title)
-        self.assertNotEqual(older_note.text, self.note.text)
-        self.assertNotEqual(older_note.slug, self.note.slug)
-        self.assertEqual(older_note.author, self.note.author)
+        self.assertEqual(self.note.title, CORRECT_DATA_FORM['title'])
+        self.assertEqual(self.note.text, CORRECT_DATA_FORM['text'])
+        self.assertEqual(self.note.slug, slugify(
+            CORRECT_DATA_FORM['title'][:100]))
+        self.assertEqual(self.note.author, older_author)
 
     def test_reader_user_cant_edit_note(self):
         count_notes_before = Note.objects.count()

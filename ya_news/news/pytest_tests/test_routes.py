@@ -1,9 +1,7 @@
-from http import HTTPStatus
+from http.client import NOT_FOUND, OK
 
 import pytest
 from pytest_django.asserts import assertRedirects
-
-pytestmark = pytest.mark.django_db
 
 
 @pytest.mark.parametrize(
@@ -12,72 +10,72 @@ pytestmark = pytest.mark.django_db
         (
             pytest.lazy_fixture('login_url'),
             pytest.lazy_fixture('client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('login_url'),
             pytest.lazy_fixture('reader_client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('logout_url'),
             pytest.lazy_fixture('client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('logout_url'),
             pytest.lazy_fixture('reader_client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('signup_url'),
             pytest.lazy_fixture('client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('signup_url'),
             pytest.lazy_fixture('reader_client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('home_url'),
             pytest.lazy_fixture('client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('home_url'),
             pytest.lazy_fixture('reader_client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('detail_url'),
             pytest.lazy_fixture('client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('detail_url'),
             pytest.lazy_fixture('reader_client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('edit_comment_url'),
             pytest.lazy_fixture('author_client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('edit_comment_url'),
             pytest.lazy_fixture('reader_client'),
-            HTTPStatus.NOT_FOUND,
+            NOT_FOUND,
         ),
         (
             pytest.lazy_fixture('delete_comment_url'),
             pytest.lazy_fixture('author_client'),
-            HTTPStatus.OK,
+            OK,
         ),
         (
             pytest.lazy_fixture('delete_comment_url'),
             pytest.lazy_fixture('reader_client'),
-            HTTPStatus.NOT_FOUND,
+            NOT_FOUND,
         ),
     ),
 )

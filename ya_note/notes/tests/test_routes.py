@@ -37,7 +37,8 @@ class TestRoutesPages(BasesTestSetup):
         )
 
         for url, custom_client, expect_status in urls_client_status:
-            with self.subTest(url=url, msg=f'Не работает путь {url}'):
+            with self.subTest(url=url, custom_client=custom_client,
+                              msg=f'Не работает путь {url}'):
                 response = custom_client.get(url)
                 self.assertEqual(response.status_code, expect_status)
 
